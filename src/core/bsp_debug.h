@@ -92,7 +92,7 @@ typedef struct bsp_trace_t
  *
  * @return size_t Length of message
  */
-BSP_DECLARE(inline size_t) bsp_trace_message(BSP_TRACE_LEVEL level, const char *tag, const char *fmt, ...);
+BSP_DECLARE(size_t) bsp_trace_message(BSP_TRACE_LEVEL level, const char *tag, const char *fmt, ...);
 
 /**
  * Set trace severrity level. All message bigger than this value will be ignored
@@ -107,5 +107,19 @@ BSP_DECLARE(void) bsp_set_trace_level(BSP_TRACE_LEVEL level);
  * @param callable recipient Repient function pointer
  */
 BSP_DECLARE(void) bsp_set_trace_recipient(void (*recipient)(BSP_TRACE *));
+
+/**
+ * Set log severrity level. All message bigger than this value will be ignored
+ *
+ * @param BSP_TRACE_LEVEL level Level
+ */
+BSP_DECLARE(void) bsp_set_log_level(BSP_TRACE_LEVEL level);
+
+/**
+ * Set log recipient. Messages will be transfered to it, if set NULL, log will be disabled
+ *
+ * @param callable recipient Repient function pointer
+ */
+BSP_DECLARE(void) bsp_set_log_recipient(void (*recipient)(BSP_TRACE *));
 
 #endif  /* _CORE_BSP_DEBUG_H */

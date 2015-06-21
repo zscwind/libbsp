@@ -117,6 +117,12 @@ BSP_DECLARE(void) bsp_del_object(BSP_OBJECT *obj)
                     }
                 }
 
+                for (idx = 0; idx < array->nbuckets; idx ++)
+                {
+                    bsp_free(array->items[idx]);
+                }
+
+                bsp_free(array->items);
                 bsp_mempool_free(mp_array, array);
             }
 
@@ -135,6 +141,7 @@ BSP_DECLARE(void) bsp_del_object(BSP_OBJECT *obj)
                     bsp_mempool_free(mp_hash_item, old);
                 }
 
+                bsp_free(hash->hash_table);
                 bsp_mempool_free(mp_hash, hash);
             }
 
@@ -461,7 +468,9 @@ BSP_PRIVATE(inline BSP_BOOLEAN) _insert_to_hash(struct bsp_hash_t *hash, BSP_STR
         {
             // Just overwrite value
             bsp_del_value(item->value);
+            bsp_del_string(item->key);
             item->value = val;
+            item->key = key;
         }
         else
         {
@@ -477,15 +486,20 @@ BSP_PRIVATE(inline BSP_BOOLEAN) _insert_to_hash(struct bsp_hash_t *hash, BSP_STR
             if (hash->tail)
             {
                 hash->tail->lnext = item;
-                item->lprev = hash->tail;
             }
 
+            item->lprev = hash->tail;
             hash->tail = item;
             item->lnext = NULL;
 
             // Insert into hash
             uint32_t hash_key = bsp_hash(STR_STR(key), STR_LEN(key));
             struct bsp_hash_item_t *bucket = &hash->hash_table[hash_key % hash->hash_size];
+            if (bucket->next)
+            {
+                bucket->next->prev = item;
+            }
+
             item->next = bucket->next;
             item->prev = bucket;
             bucket->next = item;
@@ -576,6 +590,7 @@ BSP_DECLARE(void) bsp_object_set_array(BSP_OBJECT *obj, ssize_t idx, BSP_VALUE *
                 return;
             }
 
+            bzero(array, sizeof(struct bsp_array_t));
             obj->node.array = array;
         }
 
@@ -656,6 +671,7 @@ BSP_DECLARE(void) bsp_object_set_hash(BSP_OBJECT *obj, BSP_STRING *key, BSP_VALU
                 return;
             }
 
+            bzero(hash, sizeof(struct bsp_hash_t));
             hash->hash_table = bsp_calloc(_BSP_HASH_SIZE_INITIAL, sizeof(struct bsp_hash_item_t));
             if (!hash->hash_table)
             {
@@ -705,9 +721,9 @@ BSP_DECLARE(BSP_VALUE *) bsp_object_value_single(BSP_OBJECT *obj)
     BSP_VALUE *ret = NULL;
     if (obj && BSP_OBJECT_SINGLE == obj->type)
     {
-        bsp_spin_lock(&obj->lock);
+        //bsp_spin_lock(&obj->lock);
         ret = obj->node.single;
-        bsp_spin_unlock(&obj->lock);
+        //bsp_spin_unlock(&obj->lock);
     }
 
     return ret;

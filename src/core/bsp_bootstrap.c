@@ -44,6 +44,7 @@
 
 BSP_PRIVATE(const char *) _tag_ = "BootStrap";
 BSP_PRIVATE(BSP_BOOTSTRAP_OPTIONS) options;
+BSP_PRIVATE(BSP_THREAD *) boss = NULL;
 
 // Signal handlers
 BSP_PRIVATE(void) _exit_handler(const int sig)
@@ -107,6 +108,18 @@ BSP_PRIVATE(void) _hup_handler()
     return;
 }
 
+BSP_PRIVATE(void) _winch_handler()
+{
+    if (options.signal_on_winch)
+    {
+        options.signal_on_winch();
+    }
+
+    bsp_trace_message(BSP_TRACE_NOTICE, "Signal", "Signal WinCH handled");
+
+    return;
+}
+
 BSP_PRIVATE(void) _proc_signals()
 {
     signal(SIGINT, _exit_handler);
@@ -116,6 +129,7 @@ BSP_PRIVATE(void) _proc_signals()
     signal(SIGUSR1, _usr1_handler);
     signal(SIGUSR2, _usr2_handler);
     signal(SIGHUP, _hup_handler);
+    signal(SIGWINCH, _winch_handler);
     signal(SIGPIPE, SIG_IGN);
 
     bsp_trace_message(BSP_TRACE_INFORMATIONAL, _tag_, "Signals set with default behaviors");
@@ -133,6 +147,7 @@ BSP_DECLARE(int) bsp_init()
         (BSP_RTN_SUCCESS != bsp_string_init()) | 
         (BSP_RTN_SUCCESS != bsp_value_init()) | 
         (BSP_RTN_SUCCESS != bsp_object_init()) | 
+        (BSP_RTN_SUCCESS != bsp_timer_init()) | 
         (BSP_RTN_SUCCESS != bsp_socket_init()))
     {
         bsp_trace_message(BSP_TRACE_EMERGENCY, _tag_, "Mempool initialize failed");
@@ -202,6 +217,8 @@ BSP_DECLARE(int) bsp_prepare(BSP_BOOTSTRAP_OPTIONS *o)
     options.mode = o->mode;
     options.trace_level = o->trace_level;
     options.trace_recipient = o->trace_recipient;
+    options.log_level = o->log_level;
+    options.log_recipient = o->log_recipient;
     options.main_hook_former = o->main_hook_former;
     options.main_hook_latter = o->main_hook_latter;
     options.boss_hook_former = o->boss_hook_former;
@@ -226,9 +243,12 @@ BSP_DECLARE(int) bsp_prepare(BSP_BOOTSTRAP_OPTIONS *o)
     options.signal_on_usr2 = o->signal_on_usr2;
     options.signal_on_tstp = o->signal_on_tstp;
     options.signal_on_hup = o->signal_on_hup;
+    options.signal_on_winch = o->signal_on_winch;
 
     bsp_set_trace_level(options.trace_level);
     bsp_set_trace_recipient(options.trace_recipient);
+    bsp_set_log_level(options.log_level);
+    bsp_set_log_recipient(options.log_recipient);
 
     int i;
     if (BSP_BOOTSTRAP_SERVER == options.mode)
@@ -243,7 +263,7 @@ BSP_DECLARE(int) bsp_prepare(BSP_BOOTSTRAP_OPTIONS *o)
                            options.acceptor_hook_timer, 
                            options.acceptor_hook_notify);
         }
-
+        
         bsp_trace_message(BSP_TRACE_NOTICE, _tag_, "Try to create %d IO threads", options.io_threads);
         // Start IO threads
         for (i = 0; i < options.io_threads; i ++)
@@ -267,17 +287,26 @@ BSP_DECLARE(int) bsp_prepare(BSP_BOOTSTRAP_OPTIONS *o)
         }
     }
 
+    // Only 1 BOSS thread
+    bsp_trace_message(BSP_TRACE_NOTICE, _tag_, "Try to create BOSS thread");
+    boss = bsp_new_thread(BSP_THREAD_BOSS, 
+                       options.boss_hook_former, 
+                       options.boss_hook_latter, 
+                       options.boss_hook_timer, 
+                       options.boss_hook_notify);
+
     return BSP_RTN_SUCCESS;
 }
 
 // Startup application. This is the main portal of an libbsp program
 BSP_DECLARE(int) bsp_startup()
 {
+/*
     if (options.daemonize && BSP_BOOTSTRAP_SERVER == options.mode)
     {
         bsp_daemonize();
     }
-
+*/
     if (options.enlarge_memory_page_size)
     {
         // Ooooopps~~
@@ -286,14 +315,6 @@ BSP_DECLARE(int) bsp_startup()
 
     bsp_maxnium_fds();
     _proc_signals();
-
-    // Only 1 BOSS thread
-    bsp_trace_message(BSP_TRACE_NOTICE, _tag_, "Try to create BOSS thread");
-    BSP_THREAD *t = bsp_new_thread(BSP_THREAD_BOSS, 
-                                   options.boss_hook_former, 
-                                   options.boss_hook_latter, 
-                                   options.boss_hook_timer, 
-                                   options.boss_hook_notify);
 
     switch (options.mode)
     {
@@ -313,7 +334,7 @@ BSP_DECLARE(int) bsp_startup()
     }
 
     // Waiting for BOSS exit
-    bsp_wait_thread(t);
+    bsp_wait_thread(boss);
     if (options.main_hook_latter)
     {
         options.main_hook_latter();

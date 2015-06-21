@@ -44,7 +44,7 @@
 #define _GNU_SOURCE
 
 // eneral
-#define BSP_LIB_VERSION                 "BS.Play runtime library (BlackTail)-20150403-dev"
+#define BSP_LIB_VERSION                 "BS.Play runtime library (BlackTail)-20150616-dev"
 #define BSP_PACKAGE_NAME                "BSP::BlackTail"
 #define BSP_DECLARE(type)               type
 #define BSP_PRIVATE(type)               static type
@@ -222,10 +222,9 @@ typedef enum bsp_fd_e
 #include "utils/bsp_string.h"
 #include "utils/bsp_value.h"
 #include "utils/bsp_object.h"
+#include "utils/bsp_timer.h"
 
 #include "net/bsp_socket.h"
-#include "net/bsp_session.h"
-#include "net/bsp_channel.h"
 
 #include "core/bsp_bootstrap.h"
 

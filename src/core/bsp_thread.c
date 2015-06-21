@@ -43,6 +43,7 @@
 
 BSP_PRIVATE(const char *) _tag_ = "Thread";
 BSP_PRIVATE(struct bsp_thread_pool_t) thread_pool;
+BSP_PRIVATE(pthread_key_t) lid_key;
 
 // Initialize thread pool
 BSP_DECLARE(int) bsp_thread_init()
@@ -73,10 +74,12 @@ BSP_DECLARE(int) bsp_thread_init()
     thread_pool.io_list.list_size = _BSP_THREAD_LIST_INITIAL;
     thread_pool.worker_list.list_size = _BSP_THREAD_LIST_INITIAL;
 
+    pthread_key_create(&lid_key, NULL);
+
     return BSP_RTN_SUCCESS;
 }
 
-void * _process(void *arg)
+BSP_PRIVATE(void *) _process(void *arg)
 {
     BSP_THREAD *me = (BSP_THREAD *) arg;
     if (!me)
@@ -87,7 +90,16 @@ void * _process(void *arg)
     int nfds, i;
     BSP_EVENT ev;
     BSP_SOCKET *sck = NULL;
+    BSP_TIMER *tmr = NULL;
+    pthread_setspecific(lid_key, arg);
 
+    // Condition signal
+    pthread_mutex_lock(&me->init_lock);
+    me->initialized = BSP_TRUE;
+    pthread_cond_signal(&me->init_cond);
+    pthread_mutex_unlock(&me->init_lock);
+
+    // Format hook
     if (me->hook_former)
     {
         (me->hook_former)(me);
@@ -113,9 +125,10 @@ void * _process(void *arg)
             {
                 // Timer
                 bsp_trace_message(BSP_TRACE_DEBUG, _tag_, "Timer event triggered");
-                if (me->hook_timer)
+                tmr = (BSP_TIMER *) ev.data.associate.ptr;
+                if (tmr)
                 {
-                    me->hook_timer(me);
+                    bsp_trigger_timer(tmr);
                 }
             }
 
@@ -185,6 +198,7 @@ void * _process(void *arg)
         }
     }
 
+    // Latter hook
     if (me->hook_latter)
     {
         (me->hook_latter)(me);
@@ -233,6 +247,10 @@ BSP_DECLARE(BSP_THREAD *) bsp_new_thread(BSP_THREAD_TYPE type,
     t->hook_latter = hook_latter;
     t->hook_timer = hook_timer;
     t->hook_notify = hook_notify;
+
+    pthread_mutex_init(&t->init_lock, NULL);
+    pthread_cond_init(&t->init_cond, NULL);
+    t->initialized = BSP_FALSE;
 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -298,6 +316,15 @@ BSP_DECLARE(BSP_THREAD *) bsp_new_thread(BSP_THREAD_TYPE type,
                 bsp_trace_message(BSP_TRACE_INFORMATIONAL, _tag_, "Add thread %llu to pool", (uint64_t) t->pid);
             }
         }
+
+        // Waiting for condition
+        pthread_mutex_lock(&t->init_lock);
+        while (BSP_FALSE == t->initialized)
+        {
+            pthread_cond_wait(&t->init_cond, &t->init_lock);
+        }
+
+        pthread_mutex_unlock(&t->init_lock);
     }
     else
     {
@@ -440,6 +467,14 @@ BSP_DECLARE(BSP_THREAD *) bsp_get_thread(BSP_THREAD_TYPE type, int idx)
     {
         t = list->list[idx];
     }
+
+    return t;
+}
+
+// Return current thread
+BSP_DECLARE(BSP_THREAD *) bsp_self_thread()
+{
+    BSP_THREAD *t = (BSP_THREAD *) pthread_getspecific(lid_key);
 
     return t;
 }

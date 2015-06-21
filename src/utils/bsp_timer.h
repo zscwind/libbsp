@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4 -*-  */
 /*
- * bsp_session.h
+ * bsp_timer.h
  * Copyright (C) 2015 Dr.NP <np@bsgroup.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,14 +11,14 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of Unknown nor the name of any other
+ * 3. Neither the name of Dr.NP nor the name of any other
  *    contributor may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY Unknown AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY Dr.NP AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL Unknown OR ANY OTHER
+ * ARE DISCLAIMED. IN NO EVENT SHALL Dr.NP OR ANY OTHER
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
@@ -29,18 +29,18 @@
  */
 
 /**
- * Socket session (device) manager header
+ * Timer header
  *
  * @package bsp::blacktail
  * @author Dr.NP <np@bsgroup.org>
- * @update 03/09/2015
+ * @update 06/01/2015
  * @changelog
- *      [03/09/2015] - Creation
+ *      [06/01/2015] - Creation
  */
 
-#ifndef _NET_BSP_SESSION_H
+#ifndef _UTILS_BSP_TIMER_H
 
-#define _NET_BSP_SESSION_H
+#define _UTILS_BSP_TIMER_H
 /* Headers */
 
 /* Definations */
@@ -48,15 +48,52 @@
 /* Macros */
 
 /* Structs */
-typedef struct bsp_socket_session_t
+typedef struct bsp_timer_t
 {
-    char                id[128];
-    BSP_SOCKET_CLIENT   *client_list;
-    BSP_BUFFER          read_buffer;
-    BSP_BUFFER          send_buffer;
-    time_t              last_heartbeat;
-} BSP_SOCKET_SESSION;
+    int                 fd;
+    BSP_BOOLEAN         initialized;
+    ssize_t             loop;
+    uint64_t            count;
+    void                (* on_timer)(struct bsp_timer_t *);
+    void                (* on_complete)(struct bsp_timer_t *);
+} BSP_TIMER;
 
 /* Functions */
+/**
+ * Initialize timer mempool
+ *
+ * @return int Status
+ */
+BSP_DECLARE(int) bsp_timer_init();
 
-#endif  /* _NET_BSP_SESSION_H */
+/**
+ * Create a new timer
+ *
+ * @param BSP_EVENT_CONTAINER ev Event container
+ * @param timespec initial Initval time of timer (From now to trigger time).
+ * @param timespec interval Interval of timer loop
+ * @param ssize_t loop Loop times. Negative for endless loop
+ *
+ * @returm p BSP_TIMER
+ */
+BSP_DECLARE(BSP_TIMER *) bsp_new_timer(BSP_EVENT_CONTAINER *ec, struct timespec *initial, struct timespec *internal, ssize_t loop);
+
+/**
+ * Stop and remove a timer
+ *
+ * @param BSP_TIMER tmr Timer to remove
+ *
+ * @return int Status
+ */
+BSP_DECLARE(int) bsp_del_timer(BSP_TIMER *tmr);
+
+/**
+ * Trigger a timer
+ *
+ * @param BSP_TIMER tmr TImer to tirgger
+ *
+ * @return int Status
+ */
+BSP_DECLARE(int) bsp_trigger_timer(BSP_TIMER *tmr);
+
+#endif  /* _UTILS_BSP_TIMER_H */

@@ -67,6 +67,10 @@ typedef struct bsp_thread_t
     int                 id;
     pthread_t           pid;
     BSP_THREAD_TYPE     type;
+    // Init lock & cond
+    pthread_mutex_t     init_lock;
+    pthread_cond_t      init_cond;
+    BSP_BOOLEAN         initialized;
     BSP_EVENT_CONTAINER *event_container;
     // Hook before event loop
     void                (*hook_former)(struct bsp_thread_t *);
@@ -162,5 +166,12 @@ BSP_DECLARE(BSP_THREAD *) bsp_select_thread(BSP_THREAD_TYPE type);
  * @return p BSP_THREAD
  */
 BSP_DECLARE(BSP_THREAD *) bsp_get_thread(BSP_THREAD_TYPE type, int idx);
+
+/**
+ * Return current thread
+ *
+ * @return p BSP_THREAD
+ */
+BSP_DECLARE(BSP_THREAD *) bsp_self_thread();
 
 #endif  /* _CORE_BSP_THREAD_H */
